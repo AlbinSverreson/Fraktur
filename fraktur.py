@@ -26,37 +26,12 @@ shapes = {
 }
 
 
-def get_shape_part(r, g, b, threshold):
-    if r+g+b < threshold:
+def get_shape_part(r,g,b, threshold):
+    if r+b+g < threshold:
         return "1"
     else:
         return "0"
 
-#def print_color_image(image, threshold):
-#    #image.save("output.png", "PNG")
-#    width, height = image.size
-#    for h in range(0, height, 2):
-#        out = ""
-#        for w in range(0, width, 2):
-#            red = green = blue = 255
-#            #red = green = blue = 0
-#            valid_pixels = 0
-#            active_pixels = [(w, h), (w+1, h), (w, h+1), (w+1, h+1)]
-#            shape = ""
-#            for pixels in active_pixels:
-#                try:
-#                    r, g, b = image.getpixel(pixels)
-#                    shape += get_shape_part(r, g, b, threshold)
-#                    red = int((red*r)/255)
-#                    green = int((green*g)/255)
-#                    blue = int((blue*b)/255)
-#                except IndexError:
-#                    shape += "0"
-#            if red+green+blue > threshold:
-#                out += shapes["0000"]
-#            else:
-#                out += f"\033[38;2;{red};{green};{blue}m" + shapes[shape] + "\033[0m"
-#        print(out)
 
 def print_color_image(image, threshold):
     #image.save("output.png", "PNG")
@@ -70,40 +45,44 @@ def print_color_image(image, threshold):
             colors = dict()
             fg=0
             bg=0
-            for pixels in active_pixels:
+            for pixel in active_pixels:
                 try:
-                    r, g, b = image.getpixel(pixels)
-                    if (r,g,b) in colors:
-                        colors[(r,g,b)] += 1
+                    r, g, b = image.getpixel(pixel)
+                    if r+g+b > threshold:
+                        colors[(255,255,255)] = colors.get((255, 255, 255), 0) + 1
                     else:
-                        colors[(r,g,b)] = 1
-                    shape += get_shape_part(r, g, b, threshold)
+                        colors[(r,g,b)] = colors.get((r,g,b), 0) + 1
                 except IndexError:
-                    if (255,255,255) in colors:
-                       colors[(255,255,255)]+=1
-                    else:
-                       colors[(255,255,255)]=1
-                    shape += "0"
+                    colors[(255,255,255)] = colors.get((255, 255, 255), 0) + 1
             color_list = [(k, colors[k]) for k in colors]
             color_list.sort()
             color_list.reverse()
-            if len(color_list)==1:
-                if sum(color_list[0][0])>threshold:
-                    out += shapes["0000"]
-                else:
-                    fg=color_list[0][0]
-                    out += f"\033[38;2;{fg[0]};{fg[1]};{fg[2]}m" + shapes[shape] + "\033[0m"
+            fg = color_list[0][0]
+            bg = color_list[1][0] if 1 < len(color_list) else (255, 255, 255)
+            if fg == (255, 255, 255):
+                fg = bg
+                bg = (255, 255, 255)
+
+
+            shape = ""
+            for pixel in active_pixels:
+                try:
+                    r,g,b = image.getpixel(pixel)
+                    if fg == (r,g,b) and fg != (255,255,255):
+                        shape += get_shape_part(*image.getpixel(pixel), threshold)
+                    else:
+                        shape += "0"
+                except IndexError:
+                    shape += "0"
+
+            if shape == "0000":
+                out+=shapes[shape]
             else:
-                fg=color_list[0][0]
-                if sum(fg)>threshold:
-                    fg=color_list[1][0]
-                    out += f"\033[38;2;{fg[0]};{fg[1]};{fg[2]}m" + shapes[shape] + "\033[0m"
-                elif sum(color_list[1][0])>threshold:
-                    out += f"\033[38;2;{fg[0]};{fg[1]};{fg[2]}m" + shapes[shape] + "\033[0m"
-                else:
-                    bg=color_list[1][0]
-                    out += f"\033[38;2;{fg[0]};{fg[1]};{fg[2]}m" + f"\033[48;2;{bg[0]};{bg[1]};{bg[2]}m" + shapes[shape] + "\033[0m"
-                #out += f"\033[38;2;{red};{green};{blue}m" + shapes[shape] + "\033[0m"
+                out+=f"\033[38;2;{fg[0]};{fg[1]};{fg[2]}m"
+                if bg!=(255,255,255):
+                    out+=f"\033[48;2;{bg[0]};{bg[1]};{bg[2]}m"
+                out+=shapes[shape]
+                out+= "\033[0m"
         print(out)
 
 def print_image(image, threshold):
@@ -114,9 +93,9 @@ def print_image(image, threshold):
         for w in range(0, width, 2):
             shape = ""
             active_pixels = [(w, h), (w+1, h), (w, h+1), (w+1, h+1)]
-            for pixels in active_pixels:
+            for pixel in active_pixels:
                 try:
-                    shape += get_shape_part(*image.getpixel(pixels), threshold)
+                    shape += get_shape_part(*image.getpixel(pixel), threshold)
                 except IndexError:
                     shape += "0"
             out += shapes[shape]
