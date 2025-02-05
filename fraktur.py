@@ -4,6 +4,7 @@
 from argparse import ArgumentParser
 from PIL import Image, ImageEnhance
 import math
+import os
 
 #shapecatcher <3
 shapes = {
@@ -112,18 +113,16 @@ def main():
     mode.add_argument("--multi", help="Multiple color mode", action="store_true")
 
     parser.add_argument("filename")
-    parser.add_argument("-w", "--widen", help="Strech the image to account for font size being slim", action="store_true")
-    parser.add_argument("-s", "--scale", help="Scales image to specific width", type=int)
-    parser.add_argument("-t", "--threshold", help="Threshold for transparency", default=382, type=int)
+    parser.add_argument("-s", "--scale", help="Scales image to specific width", nargs="?", const=os.get_terminal_size()[0],type=int)
+    parser.add_argument("-t", "--threshold", help="Threshold for transparency", default=600, type=int)
     args = parser.parse_args()
 
     with Image.open(args.filename).convert("RGB") as image:
         if args.scale:
             width, height = image.size
             image = image.resize((args.scale, int((args.scale/width)*height)), resample=Image.NEAREST)
-        if args.widen:
-            width, height = image.size
-            image = image.resize((width*2, height), resample=Image.NEAREST)
+        width, height = image.size
+        image = image.resize((width*2, height), resample=Image.NEAREST)
         if args.single:
             print_image(image, args.threshold)
         elif args.multi:
