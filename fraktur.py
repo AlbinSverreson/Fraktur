@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding utf-8 -*-
+"""Fraktur: Render images into terminal-displayable pixel art"""
 
 from argparse import ArgumentParser
-from PIL import Image, ImageEnhance
-import math
 import os
+from PIL import Image
 
 #shapecatcher <3
 shapes = {
@@ -27,50 +27,45 @@ shapes = {
 }
 
 
-def get_shape_part(r,g,b, threshold):
-    if r+b+g < threshold:
-        return "1"
-    else:
-        return "0"
+def get_common_colors(pixels, image, threshold):
+    """Returns the two most common colors among a group of selected pixels
+       in an image, with a threshold for what's considered transparent."""
+    colors = {}
+    for pixel in pixels:
+        try:
+            r, g, b = image.getpixel(pixel)
+            if r+g+b > threshold:
+                colors[(255,255,255)] = colors.get((255, 255, 255), 0) + 1
+            else:
+                colors[(r,g,b)] = colors.get((r,g,b), 0) + 1
+        except IndexError:
+            colors[(255,255,255)] = colors.get((255, 255, 255), 0) + 1
 
+    color_list = list(colors.items())
+    color_list.sort()
+    color_list.reverse()
+    fg = color_list[0][0]
+    bg = color_list[1][0] if 1 < len(color_list) else (255, 255, 255)
+    if fg == (255, 255, 255):
+        fg = bg
+        bg = (255, 255, 255)
+    return (fg, bg)
 
 def print_color_image(image, threshold):
-    #image.save("output.png", "PNG")
-    #image.show()
+    """Prints a multi colored image to the terminal with a threshold for
+       what's considered transparent"""
     width, height = image.size
     for h in range(0, height, 2):
         out = ""
         for w in range(0, width, 2):
             active_pixels = [(w, h), (w+1, h), (w, h+1), (w+1, h+1)]
-            shape = ""
-            colors = dict()
-            fg=0
-            bg=0
-            for pixel in active_pixels:
-                try:
-                    r, g, b = image.getpixel(pixel)
-                    if r+g+b > threshold:
-                        colors[(255,255,255)] = colors.get((255, 255, 255), 0) + 1
-                    else:
-                        colors[(r,g,b)] = colors.get((r,g,b), 0) + 1
-                except IndexError:
-                    colors[(255,255,255)] = colors.get((255, 255, 255), 0) + 1
-            color_list = [(k, colors[k]) for k in colors]
-            color_list.sort()
-            color_list.reverse()
-            fg = color_list[0][0]
-            bg = color_list[1][0] if 1 < len(color_list) else (255, 255, 255)
-            if fg == (255, 255, 255):
-                fg = bg
-                bg = (255, 255, 255)
-
-
+            fg, bg = get_common_colors(active_pixels, image, threshold)
             shape = ""
             for pixel in active_pixels:
                 try:
                     r,g,b = image.getpixel(pixel)
                     if fg == (r,g,b) and fg != (255,255,255):
-                        shape += get_shape_part(*image.getpixel(pixel), threshold)
+                        shape += "1" if sum(image.getpixel(pixel)) < threshold else "0"
                     else:
                         shape += "0"
                 except IndexError:
@@ -87,6 +82,8 @@ def print_color_image(image, threshold):
         print(out)
 
 def print_image(image, threshold):
+    """Prints a single colored image to the terminal with a threshold for
+       what's considered transparent"""
     width, height = image.size
 
     for h in range(0, height, 2):
@@ -96,38 +93,47 @@ def print_image(image, threshold):
             active_pixels = [(w, h), (w+1, h), (w, h+1), (w+1, h+1)]
             for pixel in active_pixels:
                 try:
-                    shape += get_shape_part(*image.getpixel(pixel), threshold)
+                    shape += "1" if sum(image.getpixel(pixel)) < threshold else "0"
                 except IndexError:
                     shape += "0"
             out += shapes[shape]
         print(out)
 
 def main():
+    """Parses command line arguments and calls the requested functions"""
     parser = ArgumentParser(
                     prog='Fraktur',
                     description='Generates terminal-displayable pixel art from images',
                     epilog='Beebee booboo')
+
     mode_title = parser.add_argument_group("Mode", "What mode to run Fraktur in")
     mode = mode_title.add_mutually_exclusive_group(required=True)
     mode.add_argument("--single", help="Single color mode", action="store_true")
     mode.add_argument("--multi", help="Multiple color mode", action="store_true")
 
     parser.add_argument("filename")
-    parser.add_argument("-s", "--scale", help="Scales image to specific width", nargs="?", const=os.get_terminal_size()[0],type=int)
-    parser.add_argument("-t", "--threshold", help="Threshold for transparency", default=600, type=int)
+    parser.add_argument("-s", "--scale",
+                        help="Scales image to specific width",
+                        nargs="?",
+                        const=os.get_terminal_size()[0],
+                        type=int)
+    parser.add_argument("-t", "--threshold",
+                        help="Threshold for transparency",
+                        default=600,
+                        type=int)
     args = parser.parse_args()
 
     with Image.open(args.filename).convert("RGB") as image:
         if args.scale:
             width, height = image.size
-            image = image.resize((args.scale, int((args.scale/width)*height)), resample=Image.NEAREST)
+            image = image.resize((args.scale,
+                                 int((args.scale/width)*height)),
+                                 resample=Image.NEAREST)
         width, height = image.size
         image = image.resize((width*2, height), resample=Image.NEAREST)
         if args.single:
             print_image(image, args.threshold)
         elif args.multi:
             print_color_image(image, args.threshold)
-            pass
-    
 
 main()
